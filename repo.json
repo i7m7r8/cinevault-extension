@@ -1,0 +1,9 @@
+{
+    "name": "CineVault Repo",
+    "iconUrl": "https://i7m7r8.github.io/cinevault/icon.png",
+    "description": "CineVault Repository",
+    "manifestVersion": 1,
+    "pluginLists": [
+        "https://raw.githubusercontent.com/i7m7r8/cinevault-extension/builds/plugins.json"
+    ]
+}

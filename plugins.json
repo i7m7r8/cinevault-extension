@@ -1,0 +1,22 @@
+[
+    {
+        "iconUrl": "https://i7m7r8.github.io/cinevault/icon.png",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/i7m7r8/cinevault-extension",
+        "fileSize": 27917,
+        "status": 1,
+        "language": "en",
+        "authors": [
+            "CineVault"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 1,
+        "internalName": "CineVault",
+        "description": "CineVault - Movies & TV Shows",
+        "url": "https://raw.githubusercontent.com/i7m7r8/cinevault-extension/builds/CineVault.cs3",
+        "name": "CineVault"
+    }
+]
