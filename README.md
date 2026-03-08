@@ -66,7 +66,7 @@ Step-by-step instructions for adding, managing, and using Stremio addon links in
 These extensions are **free software**: you can use, study, share, and modify them as you wish.
 
 They are distributed under the terms of the [GNU General Public License](https://www.gnu.org/licenses/gpl.html) version 3 or later, published by the Free Software Foundation.
-
+ 
 ---
 
 ## ⚖️ DMCA Disclaimer
@@ -80,5 +80,5 @@ We hereby issue this notice to clarify that these extensions function similarly 
 If you believe content is violating copyright laws, please contact the **actual file hosts**, **not** the developers of this repository or the Cloudstream 3 app.
 
 ---
-
+ 
 **Thank You for using Phisher Repo!**
