@@ -41,6 +41,9 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3.2.2
 
+      - name: Create local.properties
+        run: touch $GITHUB_WORKSPACE/src/local.properties
+
       - name: Build Plugins
         run: |
           cd $GITHUB_WORKSPACE/src
