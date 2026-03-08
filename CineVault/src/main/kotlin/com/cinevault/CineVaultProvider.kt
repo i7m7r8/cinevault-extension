@@ -2,9 +2,9 @@ package com.cinevault
 
 import android.content.Context
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
-import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.cloudstream3.utils.*
+import com.lagradost.cloudstream3.utils.AppUtils.parseJson
+import com.lagradost.cloudstream3.utils.AppUtils.toJson
 
 @CloudstreamPlugin
 class CineVaultPlugin : Plugin() {
@@ -65,11 +65,10 @@ class CineVaultProvider : MainAPI() {
                 TvType.TvSeries,
                 seasons.flatMap { season ->
                     (1..(season.episode_count ?: 0)).map { ep ->
-                        Episode(
-                            "$imdbId|tv|${season.season_number}|$ep",
-                            season = season.season_number,
-                            episode = ep
-                        )
+                        newEpisode("$imdbId|tv|${season.season_number}|$ep") {
+                            this.season = season.season_number
+                            this.episode = ep
+                        }
                     }
                 }
             ) {
@@ -97,11 +96,11 @@ class CineVaultProvider : MainAPI() {
             val title = stream.title ?: stream.name ?: "Unknown"
             val url = stream.url ?: return@forEach
             callback(
-                ExtractorLink(
-                    name, title, url, "",
-                    getQualityFromName(title),
-                    isM3u8 = false
-                )
+                newExtractorLink(
+                    name, title, url,
+                ) {
+                    this.quality = getQualityFromName(title)
+                }
             )
         }
 
