@@ -1,7 +1,7 @@
 version = 1
 
 cloudstream {
-    authorName = "CineVault"
+    authors = listOf("CineVault")
     description = "CineVault - Movies & TV Shows"
     language = "en"
     status = 1
