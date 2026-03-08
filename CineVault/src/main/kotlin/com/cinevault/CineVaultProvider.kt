@@ -2,6 +2,8 @@ package com.cinevault
 
 import android.content.Context
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
+import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.cloudstream3.utils.*
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
@@ -96,9 +98,7 @@ class CineVaultProvider : MainAPI() {
             val title = stream.title ?: stream.name ?: "Unknown"
             val url = stream.url ?: return@forEach
             callback(
-                newExtractorLink(
-                    name, title, url,
-                ) {
+                newExtractorLink(name, title, url) {
                     this.quality = getQualityFromName(title)
                 }
             )
