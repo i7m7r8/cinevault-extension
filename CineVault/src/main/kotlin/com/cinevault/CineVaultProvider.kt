@@ -1,6 +1,7 @@
 package com.cinevault
 
 import android.content.Context
+import android.util.Log
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
@@ -83,34 +84,39 @@ class CineVaultProvider : MainAPI() {
         else
             "$tmdbApi/tv/${data.id}?api_key=$apiKey&append_to_response=external_ids,seasons"
 
-        if (isMovie) {
-            val res = app.get(resUrl).parsedSafe<MovieDetail>() ?: return null
-            val imdbId = res.external_ids?.imdb_id ?: return null
-            val title = res.title ?: res.original_title ?: return null
-            return newMovieLoadResponse(title, url, TvType.Movie, LinkData(imdbId, null, null).toJson()) {
-                this.posterUrl = getImageUrl(res.poster_path)
-                this.plot = res.overview
-                this.year = res.release_date?.take(4)?.toIntOrNull()
-            }
-        } else {
-            val res = app.get(resUrl).parsedSafe<TvDetail>() ?: return null
-            val imdbId = res.external_ids?.imdb_id ?: return null
-            val title = res.name ?: res.original_name ?: return null
-            val seasons = res.seasons?.filter { (it.season_number ?: 0) > 0 } ?: emptyList()
-            val episodes = seasons.flatMap { season ->
-                val sNum = season.season_number ?: return@flatMap emptyList()
-                val epCount = season.episode_count ?: 0
-                (1..epCount).map { ep ->
-                    newEpisode(LinkData(imdbId, sNum, ep).toJson()) {
-                        this.season = sNum
-                        this.episode = ep
+        return try {
+            if (isMovie) {
+                val res = app.get(resUrl).parsedSafe<MovieDetail>() ?: return null
+                val imdbId = res.external_ids?.imdb_id ?: return null
+                val title = res.title ?: res.original_title ?: return null
+                newMovieLoadResponse(title, url, TvType.Movie, LinkData(imdbId, null, null).toJson()) {
+                    this.posterUrl = getImageUrl(res.poster_path)
+                    this.plot = res.overview
+                    this.year = res.release_date?.take(4)?.toIntOrNull()
+                }
+            } else {
+                val res = app.get(resUrl).parsedSafe<TvDetail>() ?: return null
+                val imdbId = res.external_ids?.imdb_id ?: return null
+                val title = res.name ?: res.original_name ?: return null
+                val seasons = res.seasons?.filter { (it.season_number ?: 0) > 0 } ?: emptyList()
+                val episodes = seasons.flatMap { season ->
+                    val sNum = season.season_number ?: return@flatMap emptyList()
+                    val epCount = season.episode_count ?: 0
+                    (1..epCount).map { ep ->
+                        newEpisode(LinkData(imdbId, sNum, ep).toJson()) {
+                            this.season = sNum
+                            this.episode = ep
+                        }
                     }
                 }
+                newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
+                    this.posterUrl = getImageUrl(res.poster_path)
+                    this.plot = res.overview
+                }
             }
-            return newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
-                this.posterUrl = getImageUrl(res.poster_path)
-                this.plot = res.overview
-            }
+        } catch (e: Exception) {
+            Log.e("CineVault", "Error loading details", e)
+            null
         }
     }
 
@@ -127,35 +133,83 @@ class CineVaultProvider : MainAPI() {
         val isMovie = season == null
 
         val streamUrl = if (isMovie) "$workerApi/streams/$imdbId"
-        else "$workerApi/streams/$imdbId/$season/$episode"
+                        else "$workerApi/streams/$imdbId/$season/$episode"
 
-        val streams = app.get(streamUrl).parsed<List<TorrentioStream>>()
-        streams.forEach { stream ->
-            val title = stream.title ?: stream.name ?: "Unknown"
-            val hash = stream.infoHash ?: return@forEach
-            val magnet = "magnet:?xt=urn:btih:$hash" +
+        Log.d("CineVault", "Fetching streams from: $streamUrl")
+
+        return try {
+            val response = app.get(streamUrl)
+            if (!response.isSuccessful) {
+                Log.e("CineVault", "API error: ${response.code}")
+                return false
+            }
+            val responseText = response.text
+            // Optional: log first 500 chars for debugging (can be removed in production)
+            if (responseText.length > 500) {
+                Log.d("CineVault", "Response (first 500 chars): ${responseText.take(500)}...")
+            } else {
+                Log.d("CineVault", "Response: $responseText")
+            }
+
+            val streams = parseJson<List<TorrentioStream>>(responseText)
+            if (streams.isEmpty()) {
+                Log.e("CineVault", "No streams in response")
+                return false
+            }
+
+            var linkCount = 0
+            streams.forEachIndexed { index, stream ->
+                val title = stream.title ?: stream.name ?: "Unknown"
+                val hash = stream.infoHash
+                if (hash.isNullOrBlank()) {
+                    Log.w("CineVault", "Stream $index missing infoHash, skipping")
+                    return@forEachIndexed
+                }
+                val magnet = buildMagnetLink(hash)
+                Log.d("CineVault", "Adding link: $title")
+                callback(
+                    newExtractorLink(name, title, magnet, INFER_TYPE) {
+                        this.referer = ""
+                        this.quality = getQualityFromName(title)
+                    }
+                )
+                linkCount++
+            }
+
+            // Fetch subtitles (optional, don't fail if this errors)
+            try {
+                val subs = app.get("$workerApi/subtitles/$imdbId?lang=eng").parsedSafe<List<OpenSubtitle>>()
+                subs?.forEach { sub ->
+                    sub.url?.let { url ->
+                        subtitleCallback(SubtitleFile("English", url))
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("CineVault", "Subtitle fetch failed", e)
+            }
+
+            if (linkCount == 0) {
+                Log.e("CineVault", "No valid links after processing")
+                false
+            } else {
+                Log.d("CineVault", "Successfully added $linkCount links")
+                true
+            }
+        } catch (e: Exception) {
+            Log.e("CineVault", "Exception in loadLinks", e)
+            false
+        }
+    }
+
+    private fun buildMagnetLink(hash: String): String {
+        return "magnet:?xt=urn:btih:$hash" +
                 "&tr=udp://tracker.opentrackr.org:1337/announce" +
                 "&tr=udp://open.stealth.si:80/announce" +
                 "&tr=udp://exodus.desync.com:6969/announce" +
                 "&tr=udp://tracker.torrent.eu.org:451/announce"
-            callback(
-                newExtractorLink(name, title, magnet, INFER_TYPE) {
-                    this.referer = ""
-                    this.quality = getQualityFromName(title)
-                }
-            )
-        }
-
-        try {
-            val subs = app.get("$workerApi/subtitles/$imdbId?lang=eng").parsed<List<OpenSubtitle>>()
-            subs.forEach { sub ->
-                subtitleCallback(SubtitleFile("English", sub.url ?: return@forEach))
-            }
-        } catch (e: Exception) { }
-
-        return true
     }
 
+    // Data classes (unchanged)
     data class Data(val id: Int? = null, val type: String? = null)
     data class LinkData(val imdbId: String? = null, val season: Int? = null, val episode: Int? = null)
     data class Results(val results: List<Media>? = null)
