@@ -93,12 +93,17 @@ class CineVaultProvider : MainAPI() {
         val streamUrl = if (isMovie) "$mainUrl/streams/$imdbId"
         else "$mainUrl/streams/$imdbId/${parts[2]}/${parts[3]}"
 
-        val streams = app.get(streamUrl).parsed<TorrentioResponse>()
-        streams.streams?.forEach { stream ->
+        val streams = app.get(streamUrl).parsed<List<TorrentioStream>>()
+        streams.forEach { stream ->
             val title = stream.title ?: stream.name ?: "Unknown"
-            val url = stream.url ?: return@forEach
+            val hash = stream.infoHash ?: return@forEach
+            val magnetUrl = "magnet:?xt=urn:btih:$hash" +
+                "&tr=udp://tracker.opentrackr.org:1337/announce" +
+                "&tr=udp://open.stealth.si:80/announce" +
+                "&tr=udp://exodus.desync.com:6969/announce" +
+                "&tr=udp://tracker.torrent.eu.org:451/announce"
             callback(
-                newExtractorLink(name, title, url) {
+                newExtractorLink(name, title, magnetUrl) {
                     this.quality = getQualityFromName(title)
                 }
             )
@@ -153,11 +158,12 @@ class CineVaultProvider : MainAPI() {
     )
     data class TmdbSeason(val season_number: Int, val episode_count: Int? = null)
     data class ExternalIds(val imdb_id: String? = null)
-    data class TorrentioResponse(val streams: List<TorrentioStream>? = null)
     data class TorrentioStream(
         val title: String? = null,
         val name: String? = null,
-        val url: String? = null
+        val url: String? = null,
+        val infoHash: String? = null,
+        val fileIdx: Int? = null
     )
     data class OpenSubtitle(val url: String? = null)
 }
