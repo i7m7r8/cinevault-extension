@@ -7,6 +7,7 @@ import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.cloudstream3.utils.*
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
 
 @CloudstreamPlugin
 class CineVaultPlugin : Plugin() {
@@ -19,7 +20,7 @@ class CineVaultProvider : MainAPI() {
     override var mainUrl = "https://cinevault-api.imrannn68d-de2.workers.dev"
     override var name = "CineVault"
     override val hasMainPage = true
-    override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
+    override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries, TvType.Torrent)
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val items = mutableListOf<HomePageList>()
@@ -106,11 +107,17 @@ class CineVaultProvider : MainAPI() {
         streams.forEach { stream ->
             val title = stream.title ?: stream.name ?: "Unknown"
             val hash = stream.infoHash ?: return@forEach
-            val fileIdx = stream.fileIdx ?: 0
-            val filename = stream.behaviorHints?.filename ?: "video.mkv"
-            val httpUrl = "https://torrentio.strem.fun/$hash/$fileIdx/$filename"
+            val magnet = "magnet:?xt=urn:btih:$hash" +
+                "&tr=udp://tracker.opentrackr.org:1337/announce" +
+                "&tr=udp://open.stealth.si:80/announce" +
+                "&tr=udp://exodus.desync.com:6969/announce" +
+                "&tr=udp://tracker.torrent.eu.org:451/announce"
             callback(
-                newExtractorLink(name, title, httpUrl) {
+                newExtractorLink(
+                    name, title, magnet,
+                    ExtractorLinkType.MAGNET
+                ) {
+                    this.referer = ""
                     this.quality = getQualityFromName(title)
                 }
             )
