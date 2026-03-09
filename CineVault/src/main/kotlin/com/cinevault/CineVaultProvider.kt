@@ -1,14 +1,12 @@
 package com.cinevault
 
 import android.content.Context
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.cloudstream3.utils.*
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
-import com.lagradost.cloudstream3.utils.ExtractorLinkType
 
 @CloudstreamPlugin
 class CineVaultPlugin : Plugin() {
@@ -141,7 +139,7 @@ class CineVaultProvider : MainAPI() {
                 "&tr=udp://exodus.desync.com:6969/announce" +
                 "&tr=udp://tracker.torrent.eu.org:451/announce"
             callback(
-                newExtractorLink(name, title, magnet, ExtractorLinkType.MAGNET) {
+                newExtractorLink(name, title, magnet, INFER_TYPE) {
                     this.referer = ""
                     this.quality = getQualityFromName(title)
                 }
