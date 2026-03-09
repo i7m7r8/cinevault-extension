@@ -18,19 +18,21 @@ class CineVaultPlugin : Plugin() {
 
 class CineVaultProvider : TmdbProvider() {
     override var name = "CineVault"
-    override var mainUrl = "https://cinevault-api.imrannn68d-de2.workers.dev"
+    override var mainUrl = "https://www.themoviedb.org"
     override var lang = "en"
     override val hasMainPage = true
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries, TvType.Torrent)
 
-    private val tmdbApi = "https://cinevault-api.imrannn68d-de2.workers.dev"
+    private val workerApi = "https://cinevault-api.imrannn68d-de2.workers.dev"
+    private val tmdbApi = "https://api.themoviedb.org/3"
+    private val apiKey = "4ef0d7355d9ffb5151e987764708ce96"
 
     override val mainPage = mainPageOf(
-        "$tmdbApi/trending/all/week" to "Trending",
-        "$tmdbApi/movie/popular" to "Popular Movies",
-        "$tmdbApi/tv/popular" to "Popular TV Shows",
-        "$tmdbApi/movie/top_rated" to "Top Rated Movies",
-        "$tmdbApi/tv/top_rated" to "Top Rated TV Shows"
+        "$tmdbApi/trending/all/week?api_key=$apiKey" to "Trending",
+        "$tmdbApi/movie/popular?api_key=$apiKey" to "Popular Movies",
+        "$tmdbApi/tv/popular?api_key=$apiKey" to "Popular TV Shows",
+        "$tmdbApi/movie/top_rated?api_key=$apiKey" to "Top Rated Movies",
+        "$tmdbApi/tv/top_rated?api_key=$apiKey" to "Top Rated TV Shows"
     )
 
     override suspend fun loadLinks(
@@ -45,8 +47,8 @@ class CineVaultProvider : TmdbProvider() {
         val episode = tmdbLink.episode
         val isMovie = season == null
 
-        val streamUrl = if (isMovie) "$tmdbApi/streams/$imdbId"
-        else "$tmdbApi/streams/$imdbId/$season/$episode"
+        val streamUrl = if (isMovie) "$workerApi/streams/$imdbId"
+        else "$workerApi/streams/$imdbId/$season/$episode"
 
         val streams = app.get(streamUrl).parsed<List<TorrentioStream>>()
         streams.forEach { stream ->
@@ -69,7 +71,7 @@ class CineVaultProvider : TmdbProvider() {
         }
 
         try {
-            val subs = app.get("$tmdbApi/subtitles/$imdbId?lang=eng").parsed<List<OpenSubtitle>>()
+            val subs = app.get("$workerApi/subtitles/$imdbId?lang=eng").parsed<List<OpenSubtitle>>()
             subs.forEach { sub ->
                 subtitleCallback(SubtitleFile("English", sub.url ?: return@forEach))
             }
