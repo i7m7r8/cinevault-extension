@@ -23,12 +23,20 @@ class CineVaultProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val items = mutableListOf<HomePageList>()
+
         val trending = app.get("$mainUrl/trending/all/week?page=$page").parsed<TmdbResponse>()
-        items.add(HomePageList("Trending", trending.results.map { it.toSearchResponse() }, true))
+        items.add(HomePageList("Trending", trending.results.mapNotNull { it.toSearchResponse() }, true))
+
         val popular = app.get("$mainUrl/movie/popular?page=$page").parsed<TmdbResponse>()
-        items.add(HomePageList("Popular Movies", popular.results.map { it.toSearchResponse() }))
+        items.add(HomePageList("Popular Movies", popular.results.map {
+            it.copy(media_type = "movie").toSearchResponse()!!
+        }))
+
         val tv = app.get("$mainUrl/tv/popular?page=$page").parsed<TmdbResponse>()
-        items.add(HomePageList("Popular TV Shows", tv.results.map { it.toSearchResponse() }))
+        items.add(HomePageList("Popular TV Shows", tv.results.map {
+            it.copy(media_type = "tv").toSearchResponse()!!
+        }))
+
         return newHomePageResponse(items)
     }
 
@@ -42,11 +50,11 @@ class CineVaultProvider : MainAPI() {
     override suspend fun load(url: String): LoadResponse? {
         val data = parseJson<TmdbItem>(url)
         val id = data.id ?: return null
-        val isMovie = data.media_type == "movie" || data.title != null
+        val isMovie = data.media_type == "movie"
 
         return if (isMovie) {
             val detail = app.get("$mainUrl/movie/$id?append_to_response=external_ids").parsed<TmdbDetail>()
-            val imdbId = detail.external_ids?.imdb_id
+            val imdbId = detail.external_ids?.imdb_id ?: return null
             newMovieLoadResponse(
                 detail.title ?: detail.name ?: "",
                 url,
@@ -59,7 +67,7 @@ class CineVaultProvider : MainAPI() {
             }
         } else {
             val detail = app.get("$mainUrl/tv/$id?append_to_response=external_ids").parsed<TmdbTvDetail>()
-            val imdbId = detail.external_ids?.imdb_id
+            val imdbId = detail.external_ids?.imdb_id ?: return null
             val seasons = detail.seasons?.filter { it.season_number > 0 } ?: emptyList()
             newTvSeriesLoadResponse(
                 detail.name ?: "",
@@ -87,6 +95,7 @@ class CineVaultProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val parts = data.split("|")
+        if (parts.size < 2) return false
         val imdbId = parts[0]
         val isMovie = parts[1] == "movie"
 
@@ -119,9 +128,11 @@ class CineVaultProvider : MainAPI() {
         return true
     }
 
-    private fun TmdbItem.toSearchResponse(): SearchResponse {
-        val isMovie = media_type == "movie" || title != null
-        val t = title ?: name ?: ""
+    private fun TmdbItem.toSearchResponse(): SearchResponse? {
+        val isMovie = media_type == "movie"
+        val isTv = media_type == "tv"
+        if (!isMovie && !isTv) return null
+        val t = title ?: name ?: return null
         val poster = "https://image.tmdb.org/t/p/w500$poster_path"
         val dataJson = toJson()
         return if (isMovie) {
