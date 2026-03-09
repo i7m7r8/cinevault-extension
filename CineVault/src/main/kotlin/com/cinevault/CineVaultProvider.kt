@@ -106,13 +106,11 @@ class CineVaultProvider : MainAPI() {
         streams.forEach { stream ->
             val title = stream.title ?: stream.name ?: "Unknown"
             val hash = stream.infoHash ?: return@forEach
-            val magnetUrl = "magnet:?xt=urn:btih:$hash" +
-                "&tr=udp://tracker.opentrackr.org:1337/announce" +
-                "&tr=udp://open.stealth.si:80/announce" +
-                "&tr=udp://exodus.desync.com:6969/announce" +
-                "&tr=udp://tracker.torrent.eu.org:451/announce"
+            val fileIdx = stream.fileIdx ?: 0
+            val filename = stream.behaviorHints?.filename ?: "video.mkv"
+            val httpUrl = "https://torrentio.strem.fun/$hash/$fileIdx/$filename"
             callback(
-                newExtractorLink(name, title, magnetUrl) {
+                newExtractorLink(name, title, httpUrl) {
                     this.quality = getQualityFromName(title)
                 }
             )
@@ -174,7 +172,9 @@ class CineVaultProvider : MainAPI() {
         val name: String? = null,
         val url: String? = null,
         val infoHash: String? = null,
-        val fileIdx: Int? = null
+        val fileIdx: Int? = null,
+        val behaviorHints: BehaviorHints? = null
     )
+    data class BehaviorHints(val filename: String? = null)
     data class OpenSubtitle(val url: String? = null)
 }
